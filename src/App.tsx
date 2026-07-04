@@ -1,12 +1,10 @@
-import { useState } from 'react'
-import './App.css'
+import LinkedListVisualizer from './components/visualizers/LinkedListVisualizer';
 
-function App() {
+export default function App() {
   return (
-    <div className="p-6">
-      <h1>Algorithm Visualizer Dashboard</h1>
+    <div style={{ height: '100vh', width: '100vw' }}>
+      {/* Di masa depan, kamu bisa menambahkan menu navigasi di atas ini */}
+      <LinkedListVisualizer />
     </div>
   );
 }
-
-export default App;

@@ -1,4 +1,4 @@
-import type { DefLinkedListNode, DefLinkedList } from "../../types/structures";
+import type { DefLinkedListNode, DefLinkedList } from "../types/Structures";
 
 class ListNodes<T> implements DefLinkedListNode<T> {
     data: T;
