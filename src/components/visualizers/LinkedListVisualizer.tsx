@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { 
   ReactFlow, 
   Background, 
@@ -8,10 +8,23 @@ import {
   type Node, 
   type Edge,
   MarkerType,
-  Position
+  Position,
+  Handle,
 } from '@xyflow/react';
 
 import { LinkedList } from '../../core/LinkedList';
+
+const LinkedNode = ({ data }: any) => {
+  return (
+    <div className="flex min-w-30 items-center justify-center rounded border-2 border-black bg-white px-5 py-2 text-lg font-bold text-slate-900">
+      <Handle type="target" position={Position.Left} id="target-left" />
+      <div className="flex flex-col items-center">
+        <span className="text-lg font-bold">{data.value}</span>
+      </div>
+      <Handle type="source" position={Position.Right} id="source-right" />
+    </div>
+  );
+};
 
 export default function LinkedListVisualizer() {
   const listRef = useRef(new LinkedList<number>());
@@ -21,14 +34,16 @@ export default function LinkedListVisualizer() {
   const [inputValue, setInputValue] = useState<string>('');
   const [indexValue, setIndexValue] = useState<string>('');
 
+  const nodeTypes = useMemo(() => ({ linkedNode: LinkedNode }), []);
+
   const syncVisuals = () => {
     const currentArray = listRef.current.toArray();
     
     const newNodes = currentArray.map((value, index) => ({
       id: `node-${index}`,
       position: { x: index * 200, y: 150 }, 
-      data: { label: String(value) },       
-      type: 'default',
+      data: { value },
+      type: 'linkedNode',
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
     }));
@@ -124,10 +139,10 @@ export default function LinkedListVisualizer() {
           
           <div className="flex items-center justify-center gap-2">
             <button onClick={handleInsertHead} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
-              Insert Head
+              Insert at Head
             </button>
             <button onClick={handleInsertTail} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
-              Insert Tail
+              Insert at Tail
             </button>
             <button onClick={handleInsertIndex} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
               Insert at Index
@@ -138,10 +153,10 @@ export default function LinkedListVisualizer() {
 
           <div className="flex items-center justify-center gap-2">
             <button onClick={handleDeleteIndex} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700">
-              Delete Index
+              Delete by Index
             </button>
             <button onClick={handleDeleteValue} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700">
-              Delete Value
+              Delete by Value
             </button>
           </div>
           
@@ -153,6 +168,7 @@ export default function LinkedListVisualizer() {
         <ReactFlow 
           nodes={nodes} 
           edges={edges} 
+          nodeTypes={nodeTypes}
           onNodesChange={onNodesChange} 
           onEdgesChange={onEdgesChange}
           fitView

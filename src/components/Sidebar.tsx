@@ -10,6 +10,7 @@ export default function Sidebar({ activeAlgorithm, setActiveAlgorithm }: Sidebar
 
   const menuItems = [
     { id: 'linked-list', name: 'Linked List' },
+    {id: 'doubly-linked-list', name: 'Doubly Linked List'},
     { id: 'stack', name: 'Stack (Coming Soon)' },
     { id: 'queue', name: 'Queue (Coming Soon)' },
   ];

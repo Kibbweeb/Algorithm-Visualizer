@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import LinkedListVisualizer from './components/visualizers/LinkedListVisualizer';
+import DoublyLinkedListVisualizer from './components/visualizers/DoublyLinkedListVisualizer';
 
 export default function App() {
   const [activeAlgorithm, setActiveAlgorithm] = useState('linked-list');
@@ -16,6 +17,8 @@ export default function App() {
       <div className="flex-1 h-full sm:ml-64">
         
         {activeAlgorithm === 'linked-list' && <LinkedListVisualizer />}
+        
+        {activeAlgorithm === 'doubly-linked-list' && <DoublyLinkedListVisualizer />}
         
         {activeAlgorithm === 'stack' && (
           <div className="flex h-full items-center justify-center text-2xl font-bold text-slate-400">
