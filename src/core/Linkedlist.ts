@@ -1,4 +1,4 @@
-import type { DefLinkedListNode, DefLinkedList } from "../types/Structures";
+import type { DefLinkedListNode, DefLinkedList } from "../types/LinkedListStruct";
 
 class ListNodes<T> implements DefLinkedListNode<T> {
     data: T;
@@ -14,19 +14,19 @@ export class LinkedList<T> implements DefLinkedList<T> {
     head: DefLinkedListNode<T> | null = null;
     size: number = 0;
 
+    insertAtHead(data: T): void {
+        const newNode = new ListNodes(data);
+        newNode.next = this.head;
+        this.head = newNode;
+        this.size++;
+    }
+
     constructor() {
         const initValue = [27, 38, 51, 67, 89] as unknown as T[];
 
         for (const data of initValue) {
             this.insertAtHead(data);
         }
-    }
-
-    insertAtHead(data: T): void {
-        const newNode = new ListNodes(data);
-        newNode.next = this.head;
-        this.head = newNode;
-        this.size++;
     }
 
     insertAtIndex(index: number, data: T): boolean {
@@ -66,7 +66,7 @@ export class LinkedList<T> implements DefLinkedList<T> {
         }
 
         let current = this.head;
-        while (current.next != null){
+        while (current.next){
             current = current.next;
         }
 
@@ -92,12 +92,12 @@ export class LinkedList<T> implements DefLinkedList<T> {
         let current = this.head;
 
         for (let i = 0; i < index - 1; i++){
-            if (current != null && current.next != null){
+            if (current && current.next){
                 current = current.next;
             }
         }
 
-        if (current!= null && current.next != null){
+        if (current && current.next){
             current.next = current.next.next;
             this.size--;
             return true;
@@ -134,10 +134,9 @@ export class LinkedList<T> implements DefLinkedList<T> {
 
         let current = this.head;
 
-        while (current !== null){
+        while (current){
            result.push(current.data);
            current = current.next;
-
         }
         return result;
     }

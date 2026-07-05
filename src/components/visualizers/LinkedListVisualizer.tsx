@@ -11,7 +11,7 @@ import {
   Position
 } from '@xyflow/react';
 
-import { LinkedList } from '../../core/Linkedlist'; 
+import { LinkedList } from '../../core/LinkedList';
 
 export default function LinkedListVisualizer() {
   const listRef = useRef(new LinkedList<number>());
@@ -105,7 +105,7 @@ export default function LinkedListVisualizer() {
         <div className="flex items-center justify-center gap-4">
           <input 
             type="number" 
-            placeholder="Nilai (Data)" 
+            placeholder="Value" 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             className="rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -113,14 +113,14 @@ export default function LinkedListVisualizer() {
 
           <input 
             type="number" 
-            placeholder="Indeks" 
+            placeholder="Index" 
             value={indexValue}
             onChange={(e) => setIndexValue(e.target.value)}
             className="w-24 rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
-        <div className="flex items-center justify-center flex-wrap items-center gap-4">
+        <div className="flex items-center justify-center flex-wrap gap-4">
           
           <div className="flex items-center justify-center gap-2">
             <button onClick={handleInsertHead} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
@@ -149,7 +149,7 @@ export default function LinkedListVisualizer() {
 
       </div>
 
-      <div className="flex-grow bg-slate-50">
+      <div className="grow bg-slate-50">
         <ReactFlow 
           nodes={nodes} 
           edges={edges} 
