@@ -18,6 +18,11 @@ import { DoublyLinkedList } from '../../core/DoublyLinkedList';
 const DoublyNode = ({ data }: any) => {
   return (
     <div className={`relative flex min-w-30 items-center justify-center rounded border-2 border-black bg-white px-5 py-3 text-lg font-bold text-slate-900 ${data.className || ''}`}>
+      {data.label && (
+        <span className="absolute -top-5 text-xs font-bold uppercase tracking-wider text-slate-600">
+          {data.label}
+        </span>
+      )}
       
       <Handle type="source" position={Position.Top} id="source-circular-prev" style={{ left: '70%', opacity: 0 }} />
       <Handle type="target" position={Position.Top} id="target-circular-prev" style={{ left: '30%', opacity: 0 }} />
@@ -54,6 +59,8 @@ export default function DoublyLinkedListVisualizer() {
     const total = currentArray.length;
     
     const newNodes = currentArray.map((value, index) => {
+      const label = index === 0 ? 'Head' : index === total - 1 ? 'Tail' : '';
+
       return {
         id: `node-${index}`,
         position: { x: index * 220, y: 150 }, 
@@ -61,6 +68,7 @@ export default function DoublyLinkedListVisualizer() {
         data: { 
           value: value,
           index: index,
+          label,
         },      
       };
     });

@@ -16,7 +16,12 @@ import { LinkedList } from '../../core/LinkedList';
 
 const LinkedNode = ({ data }: any) => {
   return (
-    <div className="flex min-w-30 items-center justify-center rounded border-2 border-black bg-white px-5 py-2 text-lg font-bold text-slate-900">
+    <div className="relative flex min-w-30 items-center justify-center rounded border-2 border-black bg-white px-5 py-2 text-lg font-bold text-slate-900">
+      {data.label && (
+        <span className="absolute -top-5 text-xs font-bold uppercase tracking-wider text-slate-600">
+          {data.label}
+        </span>
+      )}
       <Handle type="target" position={Position.Left} id="target-left" />
       <div className="flex flex-col items-center">
         <span className="text-lg font-bold">{data.value}</span>
@@ -42,7 +47,7 @@ export default function LinkedListVisualizer() {
     const newNodes = currentArray.map((value, index) => ({
       id: `node-${index}`,
       position: { x: index * 200, y: 150 }, 
-      data: { value },
+      data: { value, label: index === 0 ? 'Head' : '' },
       type: 'linkedNode',
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
