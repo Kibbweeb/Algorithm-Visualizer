@@ -15,21 +15,31 @@ import '@xyflow/react/dist/style.css';
 
 import { DoublyLinkedList } from '../../core/DoublyLinkedList';
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const DoublyNode = ({ data }: any) => {
+  let borderStyle = 'border-black';
+  if (data.isCurrent) borderStyle = 'border-orange-500 shadow-lg shadow-orange-200 scale-110 z-10';
+  if (data.isNew) borderStyle = 'border-green-500 shadow-lg shadow-green-200 z-10';
+  if (data.isDeleting) borderStyle = 'border-red-500 opacity-50 scale-90';
+
   return (
-    <div className={`relative flex min-w-30 items-center justify-center rounded border-2 border-black bg-white px-5 py-3 text-lg font-bold text-slate-900 ${data.className || ''}`}>
+    <div className={`relative flex min-w-30 items-center justify-center rounded border-2 bg-white px-5 py-3 text-lg font-bold text-slate-900 transition-all duration-300 ${borderStyle} ${data.className || ''}`}>
+      
+      {/* Menampilkan Label Head / Tail / Head & Tail */}
       {data.label && (
-        <span className="absolute -top-5 text-xs font-bold uppercase tracking-wider text-slate-600">
+        <span className="absolute -top-6 text-xs font-bold uppercase tracking-wider text-slate-600">
           {data.label}
         </span>
       )}
-      
+
+      {/* Handle Circular */}
       <Handle type="source" position={Position.Top} id="source-circular-prev" style={{ left: '70%', opacity: 0 }} />
       <Handle type="target" position={Position.Top} id="target-circular-prev" style={{ left: '30%', opacity: 0 }} />
-
       <Handle type="source" position={Position.Bottom} id="source-circular-next" style={{ left: '30%', opacity: 0 }} />
       <Handle type="target" position={Position.Bottom} id="target-circular-next" style={{ left: '70%', opacity: 0 }} />
 
+      {/* Handle Reguler (Kiri & Kanan) */}
       <Handle type="target" position={Position.Left} id="target-next" style={{ top: '35%' }} />
       <Handle type="source" position={Position.Left} id="source-prev" style={{ top: '65%' }} />
 
@@ -51,6 +61,7 @@ export default function DoublyLinkedListVisualizer() {
   const [inputValue, setInputValue] = useState<string>('');
   const [indexValue, setIndexValue] = useState<string>('');
   const [isCircular, setIsCircular] = useState<boolean>(false);
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
   const nodeTypes = useMemo(() => ({ doublyNode: DoublyNode }), []);
 
@@ -59,16 +70,27 @@ export default function DoublyLinkedListVisualizer() {
     const total = currentArray.length;
     
     const newNodes = currentArray.map((value, index) => {
-      const label = index === 0 ? 'Head' : index === total - 1 ? 'Tail' : '';
+      {/* Menentukan teks label berdasarkan posisi indeks node */}
+      let nodeLabel = '';
+      if (total === 1) {
+        nodeLabel = 'Head & Tail';
+      } else if (index === 0) {
+        nodeLabel = 'Head';
+      } else if (index === total - 1) {
+        nodeLabel = 'Tail';
+      }
 
       return {
         id: `node-${index}`,
         position: { x: index * 220, y: 150 }, 
         type: 'doublyNode', 
         data: { 
-          value: value,
-          index: index,
-          label,
+          value: value, 
+          index: index, 
+          label: nodeLabel, 
+          isCurrent: false, 
+          isNew: false, 
+          isDeleting: false 
         },      
       };
     });
@@ -112,8 +134,8 @@ export default function DoublyLinkedListVisualizer() {
         targetHandle: 'target-circular-next',
         type: 'smoothstep',
         animated: true,
-        style: { stroke: '#64748b', strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+        style: { stroke: '#2563eb', strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#2563eb' },
       });
 
       newEdges.push({
@@ -124,8 +146,8 @@ export default function DoublyLinkedListVisualizer() {
         targetHandle: 'target-circular-prev',
         type: 'smoothstep',
         animated: true,
-        style: { stroke: '#64748b', strokeWidth: 2, strokeDasharray: '5,5' },
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+        style: { stroke: '#dc2626', strokeWidth: 2, strokeDasharray: '5,5' },
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#dc2626' },
       });
     }
 
@@ -138,45 +160,222 @@ export default function DoublyLinkedListVisualizer() {
   }, [isCircular]);
 
   const handleToggleCircular = () => {
+    if (isAnimating) return;
     const nextMode = !isCircular;
     listRef.current.circular = nextMode;
     setIsCircular(nextMode);
   };
 
-  const handleInsertHead = () => {
-    if (!inputValue) return;
-    listRef.current.insertAtHead(Number(inputValue));
-    syncVisuals();
-    setInputValue('');
+  const highlightNode = async (index: number) => {
+    setNodes((nds) => nds.map((n, i) => ({
+      ...n,
+      data: { ...n.data, isCurrent: i === index }
+    })));
+    await sleep(600);
   };
 
-  const handleInsertTail = () => {
-    if (!inputValue) return;
-    listRef.current.insertAtTail(Number(inputValue));
+  const handleInsertHead = async () => {
+    if (!inputValue || isAnimating) return;
+    setIsAnimating(true);
+    
+    const val = Number(inputValue);
+    const newNodeId = 'node-new';
+
+    setNodes((nds) => [
+      {
+        id: newNodeId,
+        position: { x: 0, y: 50 }, 
+        data: { value: val, isNew: true, label: 'New' },
+        type: 'doublyNode',
+      },
+      ...nds.map(n => ({ ...n, position: { x: n.position.x + 220, y: n.position.y } }))
+    ]);
+    await sleep(800);
+
+    if (nodes.length > 0) {
+      setEdges((eds) => [
+        { id: `edge-next-new-0`, source: newNodeId, sourceHandle: 'source-next', target: `node-0`, targetHandle: 'target-next', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } },
+        { id: `edge-prev-0-new`, source: `node-0`, sourceHandle: 'source-prev', target: newNodeId, targetHandle: 'target-prev', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2, strokeDasharray: '5,5' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } },
+        ...eds
+      ]);
+      await sleep(800);
+    }
+
+    listRef.current.insertAtHead(val);
     syncVisuals();
     setInputValue('');
+    setIsAnimating(false);
   };
 
-  const handleInsertIndex = () => {
-    if (!inputValue || !indexValue) return;
-    listRef.current.insertAtIndex(Number(indexValue), Number(inputValue));
+  const handleInsertTail = async () => {
+    if (!inputValue || isAnimating) return;
+    setIsAnimating(true);
+
+    const val = Number(inputValue);
+    const total = listRef.current.toArray().length;
+
+    if (total > 0) {
+      for (let i = 0; i < total; i++) {
+        await highlightNode(i);
+      }
+    }
+
+    const newNodeId = 'node-new';
+    setNodes((nds) => [
+      ...nds.map(n => ({ ...n, data: { ...n.data, isCurrent: false } })),
+      {
+        id: newNodeId,
+        position: { x: total * 220, y: 150 },
+        data: { value: val, isNew: true, label: 'New' },
+        type: 'doublyNode',
+      }
+    ]);
+    await sleep(800);
+
+    if (total > 0) {
+      setEdges((eds) => [
+        ...eds,
+        { id: `edge-next-${total - 1}-new`, source: `node-${total - 1}`, sourceHandle: 'source-next', target: newNodeId, targetHandle: 'target-next', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } },
+        { id: `edge-prev-new-${total - 1}`, source: newNodeId, sourceHandle: 'source-prev', target: `node-${total - 1}`, targetHandle: 'target-prev', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2, strokeDasharray: '5,5' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } }
+      ]);
+      await sleep(800);
+    }
+
+    listRef.current.insertAtTail(val);
+    syncVisuals();
+    setInputValue('');
+    setIsAnimating(false);
+  };
+
+  const handleInsertIndex = async () => {
+    if (!inputValue || !indexValue || isAnimating) return;
+    const targetIndex = Number(indexValue);
+    const val = Number(inputValue);
+    const total = listRef.current.toArray().length;
+
+    if (targetIndex < 0 || targetIndex > total) return;
+    setIsAnimating(true);
+
+    for (let i = 0; i < targetIndex; i++) {
+      await highlightNode(i);
+    }
+
+    const newNodeId = 'node-new';
+    setNodes((nds) => {
+      const updated = nds.map((n, i) => {
+        let posX = n.position.x;
+        if (i >= targetIndex) posX += 220;
+        return { ...n, position: { x: posX, y: n.position.y }, data: { ...n.data, isCurrent: false } };
+      });
+      return [
+        ...updated,
+        {
+          id: newNodeId,
+          position: { x: targetIndex * 220, y: 50 },
+          data: { value: val, isNew: true, label: 'New' },
+          type: 'doublyNode',
+        }
+      ];
+    });
+    await sleep(800);
+
+    setEdges((eds) => {
+      const newEdges = eds.filter(e => e.id !== `edge-next-${targetIndex - 1}-${targetIndex}` && e.id !== `edge-prev-${targetIndex}-${targetIndex - 1}`);
+      if (targetIndex > 0) {
+        newEdges.push(
+          { id: `edge-next-to-new`, source: `node-${targetIndex - 1}`, sourceHandle: 'source-next', target: newNodeId, targetHandle: 'target-next', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } },
+          { id: `edge-prev-from-new`, source: newNodeId, sourceHandle: 'source-prev', target: `node-${targetIndex - 1}`, targetHandle: 'target-prev', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2, strokeDasharray: '5,5' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } }
+        );
+      }
+      if (targetIndex < total) {
+        newEdges.push(
+          { id: `edge-next-from-new`, source: newNodeId, sourceHandle: 'source-next', target: `node-${targetIndex}`, targetHandle: 'target-next', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } },
+          { id: `edge-prev-to-new`, source: `node-${targetIndex}`, sourceHandle: 'source-prev', target: newNodeId, targetHandle: 'target-prev', type: 'straight', animated: true, style: { stroke: '#22c55e', strokeWidth: 2, strokeDasharray: '5,5' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' } }
+        );
+      }
+      return newEdges;
+    });
+    await sleep(1000);
+
+    listRef.current.insertAtIndex(targetIndex, val);
     syncVisuals();
     setInputValue('');
     setIndexValue('');
+    setIsAnimating(false);
   };
 
-  const handleDeleteIndex = () => {
-    if (!indexValue) return;
-    listRef.current.deleteByIndex(Number(indexValue));
+  const handleDeleteIndex = async () => {
+    if (!indexValue || isAnimating) return;
+    const targetIndex = Number(indexValue);
+    const total = listRef.current.toArray().length;
+
+    if (targetIndex < 0 || targetIndex >= total) return;
+    setIsAnimating(true);
+
+    for (let i = 0; i <= targetIndex; i++) {
+      await highlightNode(i);
+    }
+
+    setNodes((nds) => nds.map((n, i) => ({
+      ...n,
+      data: { ...n.data, isCurrent: false, isDeleting: i === targetIndex }
+    })));
+    await sleep(800);
+
+    setEdges((eds) => {
+      const filtered = eds.filter(e => e.source !== `node-${targetIndex}` && e.target !== `node-${targetIndex}`);
+      if (targetIndex > 0 && targetIndex < total - 1) {
+        filtered.push(
+          { id: `edge-bypass-next`, source: `node-${targetIndex - 1}`, sourceHandle: 'source-next', target: `node-${targetIndex + 1}`, targetHandle: 'target-next', type: 'straight', animated: true, style: { stroke: '#ef4444', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' } },
+          { id: `edge-bypass-prev`, source: `node-${targetIndex + 1}`, sourceHandle: 'source-prev', target: `node-${targetIndex - 1}`, targetHandle: 'target-prev', type: 'straight', animated: true, style: { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '5,5' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' } }
+        );
+      }
+      return filtered;
+    });
+    await sleep(1000);
+
+    listRef.current.deleteByIndex(targetIndex);
     syncVisuals();
     setIndexValue('');
+    setIsAnimating(false);
   };
 
-  const handleDeleteValue = () => {
-    if (!inputValue) return;
-    listRef.current.deleteByValue(Number(inputValue));
+  const handleDeleteValue = async () => {
+    if (!inputValue || isAnimating) return;
+    const val = Number(inputValue);
+    const currentArray = listRef.current.toArray();
+    const targetIndex = currentArray.indexOf(val);
+    const total = currentArray.length;
+
+    if (targetIndex === -1) return;
+    setIsAnimating(true);
+
+    for (let i = 0; i <= targetIndex; i++) {
+      await highlightNode(i);
+    }
+
+    setNodes((nds) => nds.map((n, i) => ({
+      ...n,
+      data: { ...n.data, isCurrent: false, isDeleting: i === targetIndex }
+    })));
+    await sleep(800);
+
+    setEdges((eds) => {
+      const filtered = eds.filter(e => e.source !== `node-${targetIndex}` && e.target !== `node-${targetIndex}`);
+      if (targetIndex > 0 && targetIndex < total - 1) {
+        filtered.push(
+          { id: `edge-bypass-next`, source: `node-${targetIndex - 1}`, sourceHandle: 'source-next', target: `node-${targetIndex + 1}`, targetHandle: 'target-next', type: 'straight', animated: true, style: { stroke: '#ef4444', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' } },
+          { id: `edge-bypass-prev`, source: `node-${targetIndex + 1}`, sourceHandle: 'source-prev', target: `node-${targetIndex - 1}`, targetHandle: 'target-prev', type: 'straight', animated: true, style: { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '5,5' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' } }
+        );
+      }
+      return filtered;
+    });
+    await sleep(1000);
+
+    listRef.current.deleteByValue(val);
     syncVisuals();
     setInputValue('');
+    setIsAnimating(false);
   };
 
   return (
@@ -190,22 +389,25 @@ export default function DoublyLinkedListVisualizer() {
               placeholder="Value" 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              disabled={isAnimating}
+              className="rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
             <input 
               type="number" 
               placeholder="Index" 
               value={indexValue}
               onChange={(e) => setIndexValue(e.target.value)}
-              className="w-24 rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              disabled={isAnimating}
+              className="w-24 rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2 select-none">
+          <label className={`flex cursor-pointer items-center gap-2 select-none ${isAnimating ? 'opacity-50' : ''}`}>
             <input 
               type="checkbox" 
               checked={isCircular} 
               onChange={handleToggleCircular}
+              disabled={isAnimating}
               className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm font-bold text-slate-700">Circular Mode</span>
@@ -214,23 +416,23 @@ export default function DoublyLinkedListVisualizer() {
 
         <div className="flex items-center justify-center flex-wrap gap-4">
           <div className="flex items-center gap-2">
-            <button onClick={handleInsertHead} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
-              Insert at Head
+            <button disabled={isAnimating} onClick={handleInsertHead} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50">
+              Insert Head
             </button>
-            <button onClick={handleInsertTail} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
-              Insert at Tail
+            <button disabled={isAnimating} onClick={handleInsertTail} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50">
+              Insert Tail
             </button>
-            <button onClick={handleInsertIndex} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700">
+            <button disabled={isAnimating} onClick={handleInsertIndex} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50">
               Insert at Index
             </button>
           </div>
           <div className="h-8 w-0.5 bg-slate-200"></div>
           <div className="flex items-center gap-2">
-            <button onClick={handleDeleteIndex} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700">
-              Delete by Index
+            <button disabled={isAnimating} onClick={handleDeleteIndex} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700 disabled:opacity-50">
+              Delete Index
             </button>
-            <button onClick={handleDeleteValue} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700">
-              Delete by Value
+            <button disabled={isAnimating} onClick={handleDeleteValue} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700 disabled:opacity-50">
+              Delete Value
             </button>
           </div>
         </div>
