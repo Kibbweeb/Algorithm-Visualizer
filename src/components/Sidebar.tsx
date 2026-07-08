@@ -1,32 +1,28 @@
 import { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 
-interface SidebarProps {
-  activeAlgorithm: string;
-  setActiveAlgorithm: (algo: string) => void;
-}
-
-export default function Sidebar({ activeAlgorithm, setActiveAlgorithm }: SidebarProps) {
+export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
-    { id: 'linked-list', name: 'Linked List' },
-    {id: 'doubly-linked-list', name: 'Doubly Linked List'},
-    { id: 'stack', name: 'Stack (Coming Soon)' },
-    { id: 'queue', name: 'Queue (Coming Soon)' },
+    { id: 'linked-list', name: 'Linked List', path: '/linked-list' },
+    { id: 'doubly-linked-list', name: 'Doubly Linked List', path: '/doubly-linked-list' },
   ];
 
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        type="button" 
-        className="absolute top-4 left-4 z-50 inline-flex items-center p-2 ms-3 text-sm rounded-lg sm:hidden bg-white border border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200"
-      >
-        <span className="sr-only">Open sidebar</span>
-        <svg className="w-6 h-6 text-slate-800" aria-hidden="true" fill="none" viewBox="0 0 24 24">
-          <path stroke="currentColor" strokeLinecap="round" strokeWidth="2" d="M5 7h14M5 12h14M5 17h10" />
-        </svg>
-      </button>
+      {!isOpen && (
+        <button 
+          onClick={() => setIsOpen(true)}
+          type="button" 
+          className="fixed top-4 left-4 z-50 inline-flex items-center p-2 ms-3 text-sm rounded-lg sm:hidden bg-white border border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200"
+        >
+          <span className="sr-only">Open sidebar</span>
+          <svg className="w-6 h-6 text-slate-800" aria-hidden="true" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" strokeLinecap="round" strokeWidth="2" d="M5 7h14M5 12h14M5 17h10" />
+          </svg>
+        </button>
+      )}
 
       <aside 
         className={`fixed top-0 left-0 z-40 w-64 h-full transition-transform ${
@@ -43,19 +39,19 @@ export default function Sidebar({ activeAlgorithm, setActiveAlgorithm }: Sidebar
           <ul className="space-y-2 font-medium">
             {menuItems.map((item) => (
               <li key={item.id}>
-                <button
-                  onClick={() => {
-                    setActiveAlgorithm(item.id);
-                    setIsOpen(false);
-                  }}
-                  className={`flex w-full items-center p-3 rounded-lg transition-colors ${
-                    activeAlgorithm === item.id
-                      ? 'bg-blue-500 text-white'
-                      : 'text-slate-700 hover:bg-slate-200'
-                  }`}
+                <NavLink
+                  to={item.path}
+                  onClick={() => setIsOpen(false)}
+                  className={({ isActive }) =>
+                    `flex w-full items-center p-3 rounded-lg transition-colors ${
+                      isActive
+                        ? 'bg-blue-500 text-white'
+                        : 'text-slate-700 hover:bg-slate-200'
+                    }`
+                  }
                 >
                   <span className="ms-3">{item.name}</span>
-                </button>
+                </NavLink>
               </li>
             ))}
           </ul>

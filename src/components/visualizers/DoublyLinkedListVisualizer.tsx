@@ -382,8 +382,8 @@ export default function DoublyLinkedListVisualizer() {
     <div className="flex h-full w-full flex-col">
       <div className="flex flex-col items-center justify-center gap-4 border-b-2 border-slate-200 bg-white p-4">
         
-        <div className="flex items-center justify-center gap-4">
-          <div className="flex gap-2">
+        <div className="flex w-full flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap justify-center gap-2">
             <input 
               type="number" 
               placeholder="Value" 
@@ -402,7 +402,7 @@ export default function DoublyLinkedListVisualizer() {
             />
           </div>
 
-          <label className={`flex cursor-pointer items-center gap-2 select-none ${isAnimating ? 'opacity-50' : ''}`}>
+          <label className={`flex cursor-pointer items-center justify-center gap-2 select-none text-center sm:justify-start ${isAnimating ? 'opacity-50' : ''}`}>
             <input 
               type="checkbox" 
               checked={isCircular} 
@@ -410,7 +410,7 @@ export default function DoublyLinkedListVisualizer() {
               disabled={isAnimating}
               className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm font-bold text-slate-700">Circular Mode</span>
+            <span className="text-sm font-bold leading-tight text-slate-700">Circular Mode</span>
           </label>
         </div>
 

@@ -1,39 +1,26 @@
-import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import LinkedListVisualizer from './components/visualizers/LinkedListVisualizer';
 import DoublyLinkedListVisualizer from './components/visualizers/DoublyLinkedListVisualizer';
 
 export default function App() {
-  const [activeAlgorithm, setActiveAlgorithm] = useState('linked-list');
-
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white">
-      
-      <Sidebar 
-        activeAlgorithm={activeAlgorithm} 
-        setActiveAlgorithm={setActiveAlgorithm} 
-      />
-      
-      <div className="flex-1 h-full sm:ml-64">
+    <Router>
+      <div className="flex h-screen w-screen overflow-hidden bg-white">
         
-        {activeAlgorithm === 'linked-list' && <LinkedListVisualizer />}
+        <Sidebar />
         
-        {activeAlgorithm === 'doubly-linked-list' && <DoublyLinkedListVisualizer />}
-        
-        {activeAlgorithm === 'stack' && (
-          <div className="flex h-full items-center justify-center text-2xl font-bold text-slate-400">
-            Halaman Stack Belum Dibuat
-          </div>
-        )}
+        <div className="flex-1 h-full pt-16 sm:pt-0 sm:ml-64">
+          
+          <Routes>
+            <Route path="/" element={<Navigate to="/linked-list" replace />} />
+            <Route path="/linked-list" element={<LinkedListVisualizer />} />
+            <Route path="/doubly-linked-list" element={<DoublyLinkedListVisualizer />} />
+          </Routes>
 
-        {activeAlgorithm === 'queue' && (
-          <div className="flex h-full items-center justify-center text-2xl font-bold text-slate-400">
-            Halaman Queue Belum Dibuat
-          </div>
-        )}
-
+        </div>
+        
       </div>
-      
-    </div>
+    </Router>
   );
 }
