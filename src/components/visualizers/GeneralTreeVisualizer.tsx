@@ -22,7 +22,10 @@ const TreeNode = ({ data }: any) => {
   let nodeStyle = 'border-slate-800 bg-white';
   let textStyle = 'text-slate-800';
   
-  if (data.isHighlight) {
+  if (data.isSelected) {
+    nodeStyle = 'border-purple-500 bg-purple-100 scale-110 shadow-[0_0_15px_rgba(168,85,247,0.5)]';
+    textStyle = 'text-purple-700';
+  } else if (data.isHighlight) {
     nodeStyle = 'border-blue-500 bg-blue-100 scale-110';
     textStyle = 'text-blue-700';
   } else if (data.isScanning) {
@@ -49,15 +52,15 @@ export default function GeneralTreeVisualizer() {
 
   const [tree] = useState(() => new Tree());
   const [isPlaying, setIsPlaying] = useState(false);
-  const [parentInput, setParentInput] = useState('');
+  
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeData, setSelectedNodeData] = useState<number | null>(null);
+  
   const [childInput, setChildInput] = useState('');
-  const [deleteInput, setDeleteInput] = useState('');
-
-  // State baru untuk menampung pesan inline error
   const [addError, setAddError] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
-  const refreshGraph = useCallback((activeHighlights: number[] = [], activeScans: number[] = []) => {
+  const refreshGraph = useCallback((activeHighlights: string[] = [], activeScans: string[] = []) => {
     if (!tree.root) {
       setNodes([]);
       setEdges([]);
@@ -72,17 +75,20 @@ export default function GeneralTreeVisualizer() {
     const LEVEL_SPACING_Y = 100;
 
     const calculateLayout = (node: any, depth: number): { x: number, y: number } => {
+      const nodeId = node.id;
+
       if (node.children.length === 0) {
         const pos = { x: currentXOffset, y: depth * LEVEL_SPACING_Y };
         currentXOffset += NODE_SPACING_X;
         
         newNodes.push({
-          id: node.data.toString(),
+          id: nodeId,
           position: pos,
           data: { 
             label: node.data, 
-            isHighlight: activeHighlights.includes(node.data),
-            isScanning: activeScans.includes(node.data)
+            isHighlight: activeHighlights.includes(nodeId),
+            isScanning: activeScans.includes(nodeId),
+            isSelected: selectedNodeId === nodeId
           },
           type: 'treeNode',
         });
@@ -92,13 +98,13 @@ export default function GeneralTreeVisualizer() {
       const childPositions = node.children.map((child: any) => {
         const childPos = calculateLayout(child, depth + 1);
         
-        const isEdgeHighlighted = activeHighlights.includes(child.data);
-        const isEdgeScanning = activeScans.includes(child.data);
+        const isEdgeHighlighted = activeHighlights.includes(child.id);
+        const isEdgeScanning = activeScans.includes(child.id);
 
         newEdges.push({
-          id: `e-${node.data}-${child.data}`,
-          source: node.data.toString(),
-          target: child.data.toString(),
+          id: `e-${nodeId}-${child.id}`,
+          source: nodeId,
+          target: child.id,
           type: 'straight',
           markerEnd: { type: MarkerType.ArrowClosed, color: isEdgeScanning ? '#f59e0b' : '#1e293b' },
           style: { 
@@ -117,12 +123,13 @@ export default function GeneralTreeVisualizer() {
       };
 
       newNodes.push({
-        id: node.data.toString(),
+        id: nodeId,
         position: pos,
         data: { 
           label: node.data, 
-          isHighlight: activeHighlights.includes(node.data),
-          isScanning: activeScans.includes(node.data)
+          isHighlight: activeHighlights.includes(nodeId),
+          isScanning: activeScans.includes(nodeId),
+          isSelected: selectedNodeId === nodeId
         },
         type: 'treeNode',
       });
@@ -133,114 +140,84 @@ export default function GeneralTreeVisualizer() {
     calculateLayout(tree.root, 0);
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [tree, setNodes, setEdges]);
+  }, [tree, setNodes, setEdges, selectedNodeId]);
 
   useEffect(() => {
     refreshGraph();
   }, [refreshGraph]);
 
-  const animateSearch = async (targetData: number, type: 'NODE' | 'PARENT'): Promise<boolean> => {
-    const currentScans: number[] = [];
-    let foundNode: any = null;
-
-    const searchHelper = async (currentNode: any): Promise<any> => {
-      if (!currentNode) return null;
-      
-      currentScans.push(currentNode.data);
-      refreshGraph([], [...currentScans]);
-      await sleep(500);
-
-      if (type === 'NODE' && currentNode.data === targetData) {
-        return currentNode;
-      }
-
-      for (const child of currentNode.children) {
-        if (type === 'PARENT' && child.data === targetData) {
-          return currentNode;
-        }
-        const found = await searchHelper(child);
-        if (found) return found;
-      }
-      return null;
-    };
-
-    foundNode = await searchHelper(tree.root);
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    if (isPlaying) return;
     
-    if (foundNode) {
-      refreshGraph([foundNode.data], []);
-      await sleep(600);
-      return true;
+    if (selectedNodeId === node.id) {
+      setSelectedNodeId(null);
+      setSelectedNodeData(null);
+    } else {
+      setSelectedNodeId(node.id);
+      setSelectedNodeData(node.data.label as number);
     }
     
-    refreshGraph([], []);
-    return false;
-  };
+    setAddError('');
+    setDeleteError('');
+  }, [isPlaying, selectedNodeId]);
 
-  // HANDLER ADD CHILD DENGAN INLINE VALIDATION
+  const onPaneClick = useCallback(() => {
+    if (isPlaying) return;
+    setSelectedNodeId(null);
+    setSelectedNodeData(null);
+    setAddError('');
+    setDeleteError('');
+  }, [isPlaying]);
+
   const handleAddChild = async () => {
-    setAddError(''); // Reset error di awal klik
+    setAddError('');
     
-    const parent = parseInt(parentInput);
     const child = parseInt(childInput);
-    
-    if (isNaN(parent) || isNaN(child)) {
-      setAddError('Please enter valid numbers for Parent and Child!');
+    if (isNaN(child)) {
+      setAddError('Please enter a valid number for Child!');
       return;
     }
     
-    if (tree.findNode(tree.root, child)) {
-      setAddError(`Data Child ${child} is already exists in the tree!`);
+    if (!selectedNodeId && tree.root !== null) {
+      setAddError('Please click a node on the screen to be the parent!');
       return;
     }
 
     setIsPlaying(true);
 
-    const parentExists = await animateSearch(parent, 'NODE');
-
-    if (!parentExists) {
-      setAddError(`Parent ${parent} is not found in the tree!`);
-      refreshGraph([], []);
-      setIsPlaying(false);
-      return;
+    const success = tree.addChild(selectedNodeId, child);
+    
+    if (success) {
+      setChildInput('');
+      refreshGraph([success], []);
+      await sleep(600);
+    } else {
+      setAddError('Failed to add node.');
     }
 
-    tree.addChild(parent, child);
-    
-    setParentInput('');
-    setChildInput('');
     refreshGraph([], []);
     setIsPlaying(false);
   };
 
-  // HANDLER DELETE NODE DENGAN INLINE VALIDATION
   const handleDeleteNode = async () => {
     setDeleteError('');
-    
-    const target = parseInt(deleteInput);
-    if (isNaN(target)) {
-      setDeleteError('Please enter a valid target number!');
+
+    if (!selectedNodeId) {
+      setDeleteError('Please click a node on the screen to delete!');
       return;
     }
 
     setIsPlaying(true);
+    refreshGraph([selectedNodeId], []);
+    await sleep(400);
 
-    if (tree.root && tree.root.data === target) {
-      refreshGraph([tree.root.data], []);
-      await sleep(600);
-      tree.removeChild(target);
-      setDeleteInput('');
-      refreshGraph([], []);
-      setIsPlaying(false);
-      return;
-    }
+    const success = tree.removeChild(selectedNodeId);
 
-    const parentFound = await animateSearch(target, 'PARENT');
-
-    if (!parentFound) {
-      setDeleteError(`Data ${target} is not found in the tree!`);
+    if (success) {
+      setSelectedNodeId(null);
+      setSelectedNodeData(null);
     } else {
-      tree.removeChild(target);
-      setDeleteInput('');
+      setDeleteError('Failed to delete node.');
     }
 
     refreshGraph([], []);
@@ -252,17 +229,18 @@ export default function GeneralTreeVisualizer() {
     setIsPlaying(true);
     setAddError('');
     setDeleteError('');
+    setSelectedNodeId(null);
 
-    const path: number[] = [];
+    const path: string[] = [];
     if (type === 'DFS') {
-      tree.traverseDFS((node) => path.push(node.data));
+      tree.traverseDFS((node) => path.push(node.id));
     } else {
-      tree.traverseBFS((node) => path.push(node.data));
+      tree.traverseBFS((node) => path.push(node.id));
     }
 
-    const activeNodes: number[] = [];
-    for (const data of path) {
-      activeNodes.push(data);
+    const activeNodes: string[] = [];
+    for (const id of path) {
+      activeNodes.push(id);
       refreshGraph([...activeNodes], []);
       await sleep(600);
     }
@@ -281,6 +259,8 @@ export default function GeneralTreeVisualizer() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
         fitView
       >
         <Background gap={16} color="#cbd5e1" />
@@ -290,63 +270,46 @@ export default function GeneralTreeVisualizer() {
           <h3 className="font-bold text-slate-800 mb-4 text-lg">Tree Operations</h3>
           
           <div className="space-y-4">
-            {/* FORM ADD NODE */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs font-semibold text-slate-500 mb-2">ADD NODE</p>
-              <div className="flex gap-2 mb-2">
-                <input 
-                  type="number" 
-                  placeholder="Parent" 
-                  value={parentInput}
-                  onChange={(e) => { setParentInput(e.target.value); setAddError(''); }}
-                  className={`w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
-                  disabled={isPlaying}
-                />
-                <input 
-                  type="number" 
-                  placeholder="Child" 
-                  value={childInput}
-                  onChange={(e) => { setChildInput(e.target.value); setAddError(''); }}
-                  className={`w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
-                  disabled={isPlaying}
-                />
-              </div>
-              
-              {/* Pesan Inline Error untuk Add */}
-              {addError && <p className="text-xs text-red-600 mb-2 font-medium">{addError}</p>}
-
-              <button 
-                onClick={handleAddChild}
-                disabled={isPlaying}
-                className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isPlaying ? 'Scanning...' : 'Add'}
-              </button>
+            
+            <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 flex items-center justify-between">
+              <span className="text-xs font-semibold text-purple-700">SELECTED NODE:</span>
+              <span className="text-sm font-bold text-slate-800">
+                {selectedNodeData !== null ? selectedNodeData : 'None (Click a node)'}
+              </span>
             </div>
 
-            {/* FORM DELETE NODE */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs font-semibold text-slate-500 mb-2">DELETE NODE</p>
+              <p className="text-xs font-semibold text-slate-500 mb-2">ADD CHILD</p>
               <div className="flex gap-2 mb-2">
                 <input 
                   type="number" 
-                  placeholder="Data Target" 
-                  value={deleteInput}
-                  onChange={(e) => { setDeleteInput(e.target.value); setDeleteError(''); }}
-                  className={`w-2/3 p-2 text-sm border rounded focus:ring-2 focus:ring-red-500 ${deleteError ? 'border-red-500 bg-red-50' : ''}`}
+                  placeholder="New Data" 
+                  value={childInput}
+                  onChange={(e) => { setChildInput(e.target.value); setAddError(''); }}
+                  className={`w-2/3 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
                   disabled={isPlaying}
                 />
                 <button 
-                  onClick={handleDeleteNode}
+                  onClick={handleAddChild}
                   disabled={isPlaying}
-                  className="w-1/3 bg-red-500 text-white py-2 rounded text-sm font-medium hover:bg-red-600 disabled:opacity-50"
+                  className="w-1/3 bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isPlaying ? 'Scan...' : 'Delete'}
+                  Add
                 </button>
               </div>
+              {addError && <p className="text-xs text-red-600 font-medium">{addError}</p>}
+            </div>
 
-              {/* Pesan Inline Error untuk Delete */}
-              {deleteError && <p className="text-xs text-red-600 font-medium">{deleteError}</p>}
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 mb-2">DELETE NODE</p>
+              <button 
+                onClick={handleDeleteNode}
+                disabled={isPlaying || !selectedNodeId}
+                className="w-full bg-red-500 text-white py-2 rounded text-sm font-medium hover:bg-red-600 disabled:opacity-50"
+              >
+                Delete Selected Node
+              </button>
+              {deleteError && <p className="text-xs text-red-600 mt-2 font-medium">{deleteError}</p>}
             </div>
 
             <div className="flex gap-2 pt-2 border-t border-slate-200">
@@ -355,14 +318,14 @@ export default function GeneralTreeVisualizer() {
                 disabled={isPlaying || !tree.root}
                 className="flex-1 bg-teal-600 text-white py-2 rounded text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
               >
-                DFS Traversal
+                DFS
               </button>
               <button 
                 onClick={() => animateTraversal('BFS')}
                 disabled={isPlaying || !tree.root}
                 className="flex-1 bg-indigo-600 text-white py-2 rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
               >
-                BFS Traversal
+                BFS
               </button>
             </div>
           </div>
