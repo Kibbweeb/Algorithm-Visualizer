@@ -71,9 +71,19 @@ export class DoublyLinkedList<T> implements DefDoublyLinkedList<T>{
         }
 
         let current = this.head;
-        for (let i = 0; i < index - 1; i++){
-            if (current) {
-                current = current.next;
+        if (index <= this.size / 2) {
+            current = this.head;
+            for (let i = 0; i < index - 1; i++) {
+                if (current) {
+                    current = current.next;
+                }
+            }
+        } else {
+            current = this.tail;
+            for (let i = this.size - 1; i > index - 1; i--) {
+                if (current) {
+                    current = current.prev;
+                }
             }
         }
 

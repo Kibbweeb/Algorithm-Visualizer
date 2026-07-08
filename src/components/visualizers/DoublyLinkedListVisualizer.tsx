@@ -18,7 +18,7 @@ import { DoublyLinkedList } from '../../core/DoublyLinkedList';
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const DoublyNode = ({ data }: any) => {
-  let borderStyle = 'border-black';
+  let borderStyle = 'border-slate-800';
   if (data.isCurrent) borderStyle = 'border-orange-500 shadow-lg shadow-orange-200 scale-110 z-10';
   if (data.isNew) borderStyle = 'border-green-500 shadow-lg shadow-green-200 z-10';
   if (data.isDeleting) borderStyle = 'border-red-500 opacity-50 scale-90';
@@ -26,20 +26,17 @@ const DoublyNode = ({ data }: any) => {
   return (
     <div className={`relative flex min-w-30 items-center justify-center rounded border-2 bg-white px-5 py-3 text-lg font-bold text-slate-900 transition-all duration-300 ${borderStyle} ${data.className || ''}`}>
       
-      {/* Menampilkan Label Head / Tail / Head & Tail */}
       {data.label && (
         <span className="absolute -top-6 text-xs font-bold uppercase tracking-wider text-slate-600">
           {data.label}
         </span>
       )}
 
-      {/* Handle Circular */}
       <Handle type="source" position={Position.Top} id="source-circular-prev" style={{ left: '70%', opacity: 0 }} />
       <Handle type="target" position={Position.Top} id="target-circular-prev" style={{ left: '30%', opacity: 0 }} />
       <Handle type="source" position={Position.Bottom} id="source-circular-next" style={{ left: '30%', opacity: 0 }} />
       <Handle type="target" position={Position.Bottom} id="target-circular-next" style={{ left: '70%', opacity: 0 }} />
 
-      {/* Handle Reguler (Kiri & Kanan) */}
       <Handle type="target" position={Position.Left} id="target-next" style={{ top: '35%' }} />
       <Handle type="source" position={Position.Left} id="source-prev" style={{ top: '65%' }} />
 
@@ -70,7 +67,6 @@ export default function DoublyLinkedListVisualizer() {
     const total = currentArray.length;
     
     const newNodes = currentArray.map((value, index) => {
-      {/* Menentukan teks label berdasarkan posisi indeks node */}
       let nodeLabel = '';
       if (total === 1) {
         nodeLabel = 'Head & Tail';
@@ -164,6 +160,7 @@ export default function DoublyLinkedListVisualizer() {
     const nextMode = !isCircular;
     listRef.current.circular = nextMode;
     setIsCircular(nextMode);
+    syncVisuals();
   };
 
   const highlightNode = async (index: number) => {
@@ -215,8 +212,15 @@ export default function DoublyLinkedListVisualizer() {
     const total = listRef.current.toArray().length;
 
     if (total > 0) {
-      for (let i = 0; i < total; i++) {
-        await highlightNode(i);
+      if (isCircular) {
+        await highlightNode(0);
+        if (total > 1) {
+          await highlightNode(total - 1);
+        }
+      } else {
+        for (let i = 0; i < total; i++) {
+          await highlightNode(i);
+        }
       }
     }
 
@@ -256,8 +260,17 @@ export default function DoublyLinkedListVisualizer() {
     if (targetIndex < 0 || targetIndex > total) return;
     setIsAnimating(true);
 
-    for (let i = 0; i < targetIndex; i++) {
-      await highlightNode(i);
+    if (total > 0) {
+      if (targetIndex <= total / 2) {
+        for (let i = 0; i <= (targetIndex < total ? targetIndex : total - 1); i++) {
+          await highlightNode(i);
+        }
+      } else {
+        if (isCircular) await highlightNode(0);
+        for (let i = total - 1; i >= (targetIndex < total ? targetIndex - 1 : targetIndex - 1); i--) {
+          await highlightNode(i);
+        }
+      }
     }
 
     const newNodeId = 'node-new';
@@ -312,8 +325,15 @@ export default function DoublyLinkedListVisualizer() {
     if (targetIndex < 0 || targetIndex >= total) return;
     setIsAnimating(true);
 
-    for (let i = 0; i <= targetIndex; i++) {
-      await highlightNode(i);
+    if (targetIndex <= total / 2) {
+      for (let i = 0; i <= targetIndex; i++) {
+        await highlightNode(i);
+      }
+    } else {
+      if (isCircular) await highlightNode(0);
+      for (let i = total - 1; i >= targetIndex; i--) {
+        await highlightNode(i);
+      }
     }
 
     setNodes((nds) => nds.map((n, i) => ({
@@ -350,6 +370,7 @@ export default function DoublyLinkedListVisualizer() {
     if (targetIndex === -1) return;
     setIsAnimating(true);
 
+    // Pencarian By Value tetap dilakukan dari depan (Linear Search konvensional)
     for (let i = 0; i <= targetIndex; i++) {
       await highlightNode(i);
     }
