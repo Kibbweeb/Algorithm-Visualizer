@@ -53,6 +53,10 @@ export default function GeneralTreeVisualizer() {
   const [childInput, setChildInput] = useState('');
   const [deleteInput, setDeleteInput] = useState('');
 
+  // State baru untuk menampung pesan inline error
+  const [addError, setAddError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
   const refreshGraph = useCallback((activeHighlights: number[] = [], activeScans: number[] = []) => {
     if (!tree.root) {
       setNodes([]);
@@ -172,19 +176,29 @@ export default function GeneralTreeVisualizer() {
     return false;
   };
 
+  // HANDLER ADD CHILD DENGAN INLINE VALIDATION
   const handleAddChild = async () => {
+    setAddError(''); // Reset error di awal klik
+    
     const parent = parseInt(parentInput);
     const child = parseInt(childInput);
     
-    if (isNaN(parent) || isNaN(child)) return alert('Masukkan angka yang valid!');
-    if (tree.findNode(tree.root, child)) return alert('Data Child sudah ada di dalam tree!');
+    if (isNaN(parent) || isNaN(child)) {
+      setAddError('Please enter valid numbers for Parent and Child!');
+      return;
+    }
+    
+    if (tree.findNode(tree.root, child)) {
+      setAddError(`Data Child ${child} is already exists in the tree!`);
+      return;
+    }
 
     setIsPlaying(true);
 
     const parentExists = await animateSearch(parent, 'NODE');
 
     if (!parentExists) {
-      alert(`Parent dengan angka ${parent} tidak ditemukan!`);
+      setAddError(`Parent ${parent} is not found in the tree!`);
       refreshGraph([], []);
       setIsPlaying(false);
       return;
@@ -198,9 +212,15 @@ export default function GeneralTreeVisualizer() {
     setIsPlaying(false);
   };
 
+  // HANDLER DELETE NODE DENGAN INLINE VALIDATION
   const handleDeleteNode = async () => {
+    setDeleteError('');
+    
     const target = parseInt(deleteInput);
-    if (isNaN(target)) return;
+    if (isNaN(target)) {
+      setDeleteError('Please enter a valid target number!');
+      return;
+    }
 
     setIsPlaying(true);
 
@@ -217,7 +237,7 @@ export default function GeneralTreeVisualizer() {
     const parentFound = await animateSearch(target, 'PARENT');
 
     if (!parentFound) {
-      alert('Data tidak ditemukan!');
+      setDeleteError(`Data ${target} is not found in the tree!`);
     } else {
       tree.removeChild(target);
       setDeleteInput('');
@@ -230,6 +250,8 @@ export default function GeneralTreeVisualizer() {
   const animateTraversal = async (type: 'DFS' | 'BFS') => {
     if (isPlaying) return;
     setIsPlaying(true);
+    setAddError('');
+    setDeleteError('');
 
     const path: number[] = [];
     if (type === 'DFS') {
@@ -268,6 +290,7 @@ export default function GeneralTreeVisualizer() {
           <h3 className="font-bold text-slate-800 mb-4 text-lg">Tree Operations</h3>
           
           <div className="space-y-4">
+            {/* FORM ADD NODE */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-xs font-semibold text-slate-500 mb-2">ADD NODE</p>
               <div className="flex gap-2 mb-2">
@@ -275,19 +298,23 @@ export default function GeneralTreeVisualizer() {
                   type="number" 
                   placeholder="Parent" 
                   value={parentInput}
-                  onChange={(e) => setParentInput(e.target.value)}
-                  className="w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => { setParentInput(e.target.value); setAddError(''); }}
+                  className={`w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
                   disabled={isPlaying}
                 />
                 <input 
                   type="number" 
                   placeholder="Child" 
                   value={childInput}
-                  onChange={(e) => setChildInput(e.target.value)}
-                  className="w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => { setChildInput(e.target.value); setAddError(''); }}
+                  className={`w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
                   disabled={isPlaying}
                 />
               </div>
+              
+              {/* Pesan Inline Error untuk Add */}
+              {addError && <p className="text-xs text-red-600 mb-2 font-medium">{addError}</p>}
+
               <button 
                 onClick={handleAddChild}
                 disabled={isPlaying}
@@ -297,15 +324,16 @@ export default function GeneralTreeVisualizer() {
               </button>
             </div>
 
+            {/* FORM DELETE NODE */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-xs font-semibold text-slate-500 mb-2">DELETE NODE</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-2">
                 <input 
                   type="number" 
                   placeholder="Data Target" 
                   value={deleteInput}
-                  onChange={(e) => setDeleteInput(e.target.value)}
-                  className="w-2/3 p-2 text-sm border rounded focus:ring-2 focus:ring-red-500"
+                  onChange={(e) => { setDeleteInput(e.target.value); setDeleteError(''); }}
+                  className={`w-2/3 p-2 text-sm border rounded focus:ring-2 focus:ring-red-500 ${deleteError ? 'border-red-500 bg-red-50' : ''}`}
                   disabled={isPlaying}
                 />
                 <button 
@@ -316,6 +344,9 @@ export default function GeneralTreeVisualizer() {
                   {isPlaying ? 'Scan...' : 'Delete'}
                 </button>
               </div>
+
+              {/* Pesan Inline Error untuk Delete */}
+              {deleteError && <p className="text-xs text-red-600 font-medium">{deleteError}</p>}
             </div>
 
             <div className="flex gap-2 pt-2 border-t border-slate-200">

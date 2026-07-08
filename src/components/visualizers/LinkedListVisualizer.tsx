@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { 
   ReactFlow, 
   Background, 
@@ -10,364 +10,400 @@ import {
   MarkerType,
   Position,
   Handle,
-  Panel
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { Tree } from '../../core/GeneralTree';
+import { LinkedList } from '../../core/LinkedList';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const TreeNode = ({ data }: any) => {
-  let nodeStyle = 'border-slate-800 bg-white';
-  let textStyle = 'text-slate-800';
-  
-  if (data.isHighlight) {
-    nodeStyle = 'border-blue-500 bg-blue-100 scale-110';
-    textStyle = 'text-blue-700';
-  } else if (data.isScanning) {
-    nodeStyle = 'border-amber-500 bg-amber-100 scale-105 animate-pulse';
-    textStyle = 'text-amber-700';
-  }
+const LinkedNode = ({ data }: any) => {
+  let borderStyle = 'border-black';
+  if (data.isCurrent) borderStyle = 'border-orange-500 shadow-lg shadow-orange-200 scale-110 z-10';
+  if (data.isNew) borderStyle = 'border-green-500 shadow-lg shadow-green-200 z-10';
+  if (data.isDeleting) borderStyle = 'border-red-500 opacity-50 scale-90';
 
   return (
-    <div className={`px-6 py-3 shadow-lg rounded-full border-2 transition-all duration-300 ${nodeStyle}`}>
-      <Handle type="target" position={Position.Top} className="w-2 h-2 bg-slate-800" />
-      <div className={`font-bold text-lg text-center ${textStyle}`}>
-        {data.label}
+    <div className={`relative flex min-w-30 items-center justify-center rounded border-2 bg-white px-5 py-2 text-lg font-bold text-slate-900 transition-all duration-300 ${borderStyle}`}>
+      {data.label && (
+        <span className="absolute -top-5 text-xs font-bold uppercase tracking-wider text-slate-600">
+          {data.label}
+        </span>
+      )}
+      <Handle type="target" position={Position.Left} id="target-left" />
+      <div className="flex flex-col items-center">
+        <span className="text-lg font-bold">{data.value}</span>
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-2 h-2 bg-slate-800" />
+      <Handle type="source" position={Position.Right} id="source-right" />
     </div>
   );
 };
 
-export default function GeneralTreeVisualizer() {
+export default function LinkedListVisualizer() {
+  const listRef = useRef(new LinkedList<number>());
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  
-  const nodeTypes = useMemo(() => ({ treeNode: TreeNode }), []);
 
-  const [tree] = useState(() => new Tree());
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [parentInput, setParentInput] = useState('');
-  const [childInput, setChildInput] = useState('');
-  const [deleteInput, setDeleteInput] = useState('');
+  const [inputValue, setInputValue] = useState<string>('');
+  const [indexValue, setIndexValue] = useState<string>('');
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
-  // State baru untuk menampung pesan inline error
-  const [addError, setAddError] = useState('');
-  const [deleteError, setDeleteError] = useState('');
+  const nodeTypes = useMemo(() => ({ linkedNode: LinkedNode }), []);
 
-  const refreshGraph = useCallback((activeHighlights: number[] = [], activeScans: number[] = []) => {
-    if (!tree.root) {
-      setNodes([]);
-      setEdges([]);
-      return;
+  const syncVisuals = () => {
+    const currentArray = listRef.current.toArray();
+    
+    const newNodes = currentArray.map((value: number, index: number) => ({
+      id: `node-${index}`,
+      position: { x: index * 200, y: 150 }, 
+      data: { value, label: index === 0 ? 'Head' : '', isCurrent: false, isNew: false, isDeleting: false },
+      type: 'linkedNode',
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+    }));
+
+    const newEdges = [];
+    for (let i = 0; i < currentArray.length - 1; i++) {
+      newEdges.push({
+        id: `edge-${i}-${i + 1}`,
+        source: `node-${i}`,       
+        target: `node-${i + 1}`,   
+        animated: true,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+          color: '#64748b',
+        },
+        style: {
+          stroke: '#64748b',
+          strokeWidth: 2,
+        }
+      });
     }
 
-    const newNodes: Node[] = [];
-    const newEdges: Edge[] = [];
-    
-    let currentXOffset = 0; 
-    const NODE_SPACING_X = 120;
-    const LEVEL_SPACING_Y = 100;
-
-    const calculateLayout = (node: any, depth: number): { x: number, y: number } => {
-      if (node.children.length === 0) {
-        const pos = { x: currentXOffset, y: depth * LEVEL_SPACING_Y };
-        currentXOffset += NODE_SPACING_X;
-        
-        newNodes.push({
-          id: node.data.toString(),
-          position: pos,
-          data: { 
-            label: node.data, 
-            isHighlight: activeHighlights.includes(node.data),
-            isScanning: activeScans.includes(node.data)
-          },
-          type: 'treeNode',
-        });
-        return pos;
-      }
-
-      const childPositions = node.children.map((child: any) => {
-        const childPos = calculateLayout(child, depth + 1);
-        
-        const isEdgeHighlighted = activeHighlights.includes(child.data);
-        const isEdgeScanning = activeScans.includes(child.data);
-
-        newEdges.push({
-          id: `e-${node.data}-${child.data}`,
-          source: node.data.toString(),
-          target: child.data.toString(),
-          type: 'straight',
-          markerEnd: { type: MarkerType.ArrowClosed, color: isEdgeScanning ? '#f59e0b' : '#1e293b' },
-          style: { 
-            stroke: isEdgeHighlighted ? '#3b82f6' : isEdgeScanning ? '#f59e0b' : '#1e293b', 
-            strokeWidth: isEdgeHighlighted || isEdgeScanning ? 3 : 2 
-          },
-          animated: isEdgeHighlighted || isEdgeScanning
-        });
-        
-        return childPos;
-      });
-
-      const pos = {
-        x: (childPositions[0].x + childPositions[childPositions.length - 1].x) / 2,
-        y: depth * LEVEL_SPACING_Y
-      };
-
-      newNodes.push({
-        id: node.data.toString(),
-        position: pos,
-        data: { 
-          label: node.data, 
-          isHighlight: activeHighlights.includes(node.data),
-          isScanning: activeScans.includes(node.data)
-        },
-        type: 'treeNode',
-      });
-
-      return pos;
-    };
-
-    calculateLayout(tree.root, 0);
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [tree, setNodes, setEdges]);
+  };
 
   useEffect(() => {
-    refreshGraph();
-  }, [refreshGraph]);
+    syncVisuals();
+  }, []);
 
-  const animateSearch = async (targetData: number, type: 'NODE' | 'PARENT'): Promise<boolean> => {
-    const currentScans: number[] = [];
-    let foundNode: any = null;
+  const highlightNode = async (index: number) => {
+    setNodes((nds) => nds.map((n, i) => ({
+      ...n,
+      data: { ...n.data, isCurrent: i === index }
+    })));
+    await sleep(600);
+  };
 
-    const searchHelper = async (currentNode: any): Promise<any> => {
-      if (!currentNode) return null;
-      
-      currentScans.push(currentNode.data);
-      refreshGraph([], [...currentScans]);
-      await sleep(500);
+  const handleInsertHead = async () => {
+    if (!inputValue || isAnimating) return;
+    setIsAnimating(true);
+    
+    const val = Number(inputValue);
+    const newNodeId = 'node-new';
 
-      if (type === 'NODE' && currentNode.data === targetData) {
-        return currentNode;
+    setNodes((nds) => [
+      {
+        id: newNodeId,
+        position: { x: 0, y: 50 }, 
+        data: { value: val, isNew: true, label: 'New' },
+        type: 'linkedNode',
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+      },
+      ...nds.map(n => ({ ...n, position: { x: n.position.x + 200, y: n.position.y } }))
+    ]);
+    await sleep(800);
+
+    if (nodes.length > 0) {
+      setEdges((eds) => [
+        {
+          id: `edge-new-0`,
+          source: newNodeId,
+          target: `node-0`,
+          animated: true,
+          style: { stroke: '#22c55e', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' }
+        },
+        ...eds
+      ]);
+      await sleep(800);
+    }
+
+    listRef.current.insertAtHead(val);
+    syncVisuals();
+    setInputValue('');
+    setIsAnimating(false);
+  };
+
+  const handleInsertTail = async () => {
+    if (!inputValue || isAnimating) return;
+    setIsAnimating(true);
+
+    const val = Number(inputValue);
+    const currentArray = listRef.current.toArray();
+    const total = currentArray.length;
+
+    if (total > 0) {
+      for (let i = 0; i < total; i++) {
+        await highlightNode(i);
       }
+    }
 
-      for (const child of currentNode.children) {
-        if (type === 'PARENT' && child.data === targetData) {
-          return currentNode;
+    const newNodeId = 'node-new';
+    setNodes((nds) => [
+      ...nds.map(n => ({ ...n, data: { ...n.data, isCurrent: false } })),
+      {
+        id: newNodeId,
+        position: { x: total * 200, y: 150 },
+        data: { value: val, isNew: true, label: 'New' },
+        type: 'linkedNode',
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+      }
+    ]);
+    await sleep(800);
+
+    if (total > 0) {
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `edge-${total - 1}-new`,
+          source: `node-${total - 1}`,
+          target: newNodeId,
+          animated: true,
+          style: { stroke: '#22c55e', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' }
         }
-        const found = await searchHelper(child);
-        if (found) return found;
+      ]);
+      await sleep(800);
+    }
+
+    listRef.current.insertAtTail(val);
+    syncVisuals();
+    setInputValue('');
+    setIsAnimating(false);
+  };
+
+  const handleInsertIndex = async () => {
+    if (!inputValue || !indexValue || isAnimating) return;
+    const targetIndex = Number(indexValue);
+    const val = Number(inputValue);
+    const total = listRef.current.toArray().length;
+
+    if (targetIndex < 0 || targetIndex > total) return;
+    setIsAnimating(true);
+
+    for (let i = 0; i < targetIndex; i++) {
+      await highlightNode(i);
+    }
+
+    const newNodeId = 'node-new';
+    setNodes((nds) => {
+      const updated = nds.map((n, i) => {
+        let posX = n.position.x;
+        if (i >= targetIndex) posX += 200;
+        return { ...n, position: { x: posX, y: n.position.y }, data: { ...n.data, isCurrent: false } };
+      });
+      return [
+        ...updated,
+        {
+          id: newNodeId,
+          position: { x: targetIndex * 200, y: 50 },
+          data: { value: val, isNew: true, label: 'New' },
+          type: 'linkedNode',
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
+        }
+      ];
+    });
+    await sleep(800);
+
+    setEdges((eds) => {
+      const newEdges = eds.filter(e => e.id !== `edge-${targetIndex - 1}-${targetIndex}`);
+      if (targetIndex > 0) {
+        newEdges.push({
+          id: `edge-to-new`,
+          source: `node-${targetIndex - 1}`,
+          target: newNodeId,
+          animated: true,
+          style: { stroke: '#22c55e', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' }
+        });
       }
-      return null;
-    };
+      if (targetIndex < total) {
+        newEdges.push({
+          id: `edge-from-new`,
+          source: newNodeId,
+          target: `node-${targetIndex}`,
+          animated: true,
+          style: { stroke: '#22c55e', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#22c55e' }
+        });
+      }
+      return newEdges;
+    });
+    await sleep(1000);
 
-    foundNode = await searchHelper(tree.root);
-    
-    if (foundNode) {
-      refreshGraph([foundNode.data], []);
-      await sleep(600);
-      return true;
-    }
-    
-    refreshGraph([], []);
-    return false;
+    listRef.current.insertAtIndex(targetIndex, val);
+    syncVisuals();
+    setInputValue('');
+    setIndexValue('');
+    setIsAnimating(false);
   };
 
-  // HANDLER ADD CHILD DENGAN INLINE VALIDATION
-  const handleAddChild = async () => {
-    setAddError(''); // Reset error di awal klik
-    
-    const parent = parseInt(parentInput);
-    const child = parseInt(childInput);
-    
-    if (isNaN(parent) || isNaN(child)) {
-      setAddError('Please enter valid numbers for Parent and Child!');
-      return;
-    }
-    
-    if (tree.findNode(tree.root, child)) {
-      setAddError(`Data Child ${child} is already exists in the tree!`);
-      return;
+  const handleDeleteIndex = async () => {
+    if (!indexValue || isAnimating) return;
+    const targetIndex = Number(indexValue);
+    const total = listRef.current.toArray().length;
+
+    if (targetIndex < 0 || targetIndex >= total) return;
+    setIsAnimating(true);
+
+    for (let i = 0; i <= targetIndex; i++) {
+      await highlightNode(i);
     }
 
-    setIsPlaying(true);
+    setNodes((nds) => nds.map((n, i) => ({
+      ...n,
+      data: { ...n.data, isCurrent: false, isDeleting: i === targetIndex }
+    })));
+    await sleep(800);
 
-    const parentExists = await animateSearch(parent, 'NODE');
+    setEdges((eds) => {
+      const filtered = eds.filter(e => e.source !== `node-${targetIndex}` && e.target !== `node-${targetIndex}`);
+      if (targetIndex > 0 && targetIndex < total - 1) {
+        filtered.push({
+          id: `edge-bypass`,
+          source: `node-${targetIndex - 1}`,
+          target: `node-${targetIndex + 1}`,
+          animated: true,
+          style: { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '5,5' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' }
+        });
+      }
+      return filtered;
+    });
+    await sleep(1000);
 
-    if (!parentExists) {
-      setAddError(`Parent ${parent} is not found in the tree!`);
-      refreshGraph([], []);
-      setIsPlaying(false);
-      return;
-    }
-
-    tree.addChild(parent, child);
-    
-    setParentInput('');
-    setChildInput('');
-    refreshGraph([], []);
-    setIsPlaying(false);
+    listRef.current.deleteByIndex(targetIndex);
+    syncVisuals();
+    setIndexValue('');
+    setIsAnimating(false);
   };
 
-  // HANDLER DELETE NODE DENGAN INLINE VALIDATION
-  const handleDeleteNode = async () => {
-    setDeleteError('');
-    
-    const target = parseInt(deleteInput);
-    if (isNaN(target)) {
-      setDeleteError('Please enter a valid target number!');
-      return;
+  const handleDeleteValue = async () => {
+    if (!inputValue || isAnimating) return;
+    const val = Number(inputValue);
+    const currentArray = listRef.current.toArray();
+    const targetIndex = currentArray.indexOf(val);
+
+    if (targetIndex === -1) return;
+    setIsAnimating(true);
+
+    for (let i = 0; i <= targetIndex; i++) {
+      await highlightNode(i);
     }
 
-    setIsPlaying(true);
+    setNodes((nds) => nds.map((n, i) => ({
+      ...n,
+      data: { ...n.data, isCurrent: false, isDeleting: i === targetIndex }
+    })));
+    await sleep(800);
 
-    if (tree.root && tree.root.data === target) {
-      refreshGraph([tree.root.data], []);
-      await sleep(600);
-      tree.removeChild(target);
-      setDeleteInput('');
-      refreshGraph([], []);
-      setIsPlaying(false);
-      return;
-    }
+    setEdges((eds) => {
+      const filtered = eds.filter(e => e.source !== `node-${targetIndex}` && e.target !== `node-${targetIndex}`);
+      if (targetIndex > 0 && targetIndex < currentArray.length - 1) {
+        filtered.push({
+          id: `edge-bypass`,
+          source: `node-${targetIndex - 1}`,
+          target: `node-${targetIndex + 1}`,
+          animated: true,
+          style: { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '5,5' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' }
+        });
+      }
+      return filtered;
+    });
+    await sleep(1000);
 
-    const parentFound = await animateSearch(target, 'PARENT');
-
-    if (!parentFound) {
-      setDeleteError(`Data ${target} is not found in the tree!`);
-    } else {
-      tree.removeChild(target);
-      setDeleteInput('');
-    }
-
-    refreshGraph([], []);
-    setIsPlaying(false);
-  };
-
-  const animateTraversal = async (type: 'DFS' | 'BFS') => {
-    if (isPlaying) return;
-    setIsPlaying(true);
-    setAddError('');
-    setDeleteError('');
-
-    const path: number[] = [];
-    if (type === 'DFS') {
-      tree.traverseDFS((node) => path.push(node.data));
-    } else {
-      tree.traverseBFS((node) => path.push(node.data));
-    }
-
-    const activeNodes: number[] = [];
-    for (const data of path) {
-      activeNodes.push(data);
-      refreshGraph([...activeNodes], []);
-      await sleep(600);
-    }
-
-    setTimeout(() => {
-      refreshGraph([], []);
-      setIsPlaying(false);
-    }, 1500);
+    listRef.current.deleteByValue(val);
+    syncVisuals();
+    setInputValue('');
+    setIsAnimating(false);
   };
 
   return (
-    <div className="w-full h-full relative bg-slate-50">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        fitView
-      >
-        <Background gap={16} color="#cbd5e1" />
-        <Controls />
+    <div className="flex h-full w-full flex-col">
+    
+      <div className="flex flex-col items-center justify-center gap-4 border-b-2 border-slate-200 bg-white p-4">
         
-        <Panel position="top-left" className="bg-white/90 p-4 rounded-xl shadow-lg border border-slate-200 w-80 backdrop-blur-sm">
-          <h3 className="font-bold text-slate-800 mb-4 text-lg">Tree Operations</h3>
+        <div className="flex items-center justify-center gap-4">
+          <input 
+            type="number" 
+            placeholder="Value" 
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            disabled={isAnimating}
+            className="rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+          />
+
+          <input 
+            type="number" 
+            placeholder="Index" 
+            value={indexValue}
+            onChange={(e) => setIndexValue(e.target.value)}
+            disabled={isAnimating}
+            className="w-24 rounded border border-slate-300 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+          />
+        </div>
+
+        <div className="flex items-center justify-center flex-wrap gap-4">
           
-          <div className="space-y-4">
-            {/* FORM ADD NODE */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs font-semibold text-slate-500 mb-2">ADD NODE</p>
-              <div className="flex gap-2 mb-2">
-                <input 
-                  type="number" 
-                  placeholder="Parent" 
-                  value={parentInput}
-                  onChange={(e) => { setParentInput(e.target.value); setAddError(''); }}
-                  className={`w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
-                  disabled={isPlaying}
-                />
-                <input 
-                  type="number" 
-                  placeholder="Child" 
-                  value={childInput}
-                  onChange={(e) => { setChildInput(e.target.value); setAddError(''); }}
-                  className={`w-1/2 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${addError ? 'border-red-500 bg-red-50' : ''}`}
-                  disabled={isPlaying}
-                />
-              </div>
-              
-              {/* Pesan Inline Error untuk Add */}
-              {addError && <p className="text-xs text-red-600 mb-2 font-medium">{addError}</p>}
-
-              <button 
-                onClick={handleAddChild}
-                disabled={isPlaying}
-                className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isPlaying ? 'Scanning...' : 'Add'}
-              </button>
-            </div>
-
-            {/* FORM DELETE NODE */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs font-semibold text-slate-500 mb-2">DELETE NODE</p>
-              <div className="flex gap-2 mb-2">
-                <input 
-                  type="number" 
-                  placeholder="Data Target" 
-                  value={deleteInput}
-                  onChange={(e) => { setDeleteInput(e.target.value); setDeleteError(''); }}
-                  className={`w-2/3 p-2 text-sm border rounded focus:ring-2 focus:ring-red-500 ${deleteError ? 'border-red-500 bg-red-50' : ''}`}
-                  disabled={isPlaying}
-                />
-                <button 
-                  onClick={handleDeleteNode}
-                  disabled={isPlaying}
-                  className="w-1/3 bg-red-500 text-white py-2 rounded text-sm font-medium hover:bg-red-600 disabled:opacity-50"
-                >
-                  {isPlaying ? 'Scan...' : 'Delete'}
-                </button>
-              </div>
-
-              {/* Pesan Inline Error untuk Delete */}
-              {deleteError && <p className="text-xs text-red-600 font-medium">{deleteError}</p>}
-            </div>
-
-            <div className="flex gap-2 pt-2 border-t border-slate-200">
-              <button 
-                onClick={() => animateTraversal('DFS')}
-                disabled={isPlaying || !tree.root}
-                className="flex-1 bg-teal-600 text-white py-2 rounded text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
-              >
-                DFS Traversal
-              </button>
-              <button 
-                onClick={() => animateTraversal('BFS')}
-                disabled={isPlaying || !tree.root}
-                className="flex-1 bg-indigo-600 text-white py-2 rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
-              >
-                BFS Traversal
-              </button>
-            </div>
+          <div className="flex items-center justify-center gap-2">
+            <button disabled={isAnimating} onClick={handleInsertHead} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50">
+              Insert at Head
+            </button>
+            <button disabled={isAnimating} onClick={handleInsertTail} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50">
+              Insert at Tail
+            </button>
+            <button disabled={isAnimating} onClick={handleInsertIndex} className="rounded bg-blue-500 px-3 py-2 font-bold text-white transition-colors hover:bg-blue-600 active:bg-blue-700 disabled:opacity-50">
+              Insert at Index
+            </button>
           </div>
-        </Panel>
-      </ReactFlow>
+
+          <div className="h-8 w-0.5 bg-slate-200"></div>
+
+          <div className="flex items-center justify-center gap-2">
+            <button disabled={isAnimating} onClick={handleDeleteIndex} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700 disabled:opacity-50">
+              Delete by Index
+            </button>
+            <button disabled={isAnimating} onClick={handleDeleteValue} className="rounded bg-red-500 px-3 py-2 font-bold text-white transition-colors hover:bg-red-600 active:bg-red-700 disabled:opacity-50">
+              Delete by Value
+            </button>
+          </div>
+          
+        </div>
+
+      </div>
+
+      <div className="grow bg-slate-50">
+        <ReactFlow 
+          nodes={nodes} 
+          edges={edges} 
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange} 
+          onEdgesChange={onEdgesChange}
+          fitView
+        >
+          <Background />
+          <Controls />
+        </ReactFlow>
+      </div>
+      
     </div>
   );
 }
