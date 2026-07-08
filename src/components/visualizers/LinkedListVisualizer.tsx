@@ -13,7 +13,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { LinkedList } from '../../core/LinkedList';
+import { LinkedList } from '../../core/TempList';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -53,7 +53,7 @@ export default function LinkedListVisualizer() {
   const syncVisuals = () => {
     const currentArray = listRef.current.toArray();
     
-    const newNodes = currentArray.map((value, index) => ({
+    const newNodes = currentArray.map((value: number, index: number) => ({
       id: `node-${index}`,
       position: { x: index * 200, y: 150 }, 
       data: { value, label: index === 0 ? 'Head' : '', isCurrent: false, isNew: false, isDeleting: false },
