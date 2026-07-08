@@ -34,7 +34,7 @@ export class Tree implements DefTree<number>{
         return false;
     }
     
-    private findNode (currentNode: TreeNodes<number> | null, targetData: number): TreeNodes<number> | null {
+    public findNode (currentNode: TreeNodes<number> | null, targetData: number): TreeNodes<number> | null {
         if (!currentNode) return null;
         if (currentNode.data === targetData) return currentNode;
 
@@ -99,6 +99,37 @@ export class Tree implements DefTree<number>{
         }
 
         return false;
+    }
+
+    traverseDFS(callback: (node: TreeNodes<number>) => void): void {
+        if (this.root !== null){
+            this.dfsHelper(this.root, callback);
+        }
+    }
+
+    private dfsHelper(currentNode: TreeNodes<number>, callback: (node: TreeNodes<number>) => void) : void{
+        callback(currentNode);
+
+        for (const child of currentNode.children){
+            this.dfsHelper(child, callback);
+        }
+    }
+
+    traverseBFS(callback: (node: TreeNodes<number>) => void): void {
+        if (!this.root){
+            return;
+        }
+
+        const queue: TreeNodes<number>[] = [this.root];
+        
+        while (queue.length > 0){
+            const currentNode = queue.shift()!;
+            callback(currentNode);
+
+            for (const child of currentNode.children){
+                queue.push(child);
+            }
+        }
     }
     
 }

@@ -7,6 +7,7 @@ export default function Sidebar() {
   const menuItems = [
     { id: 'linked-list', name: 'Linked List', path: '/linked-list' },
     { id: 'doubly-linked-list', name: 'Doubly Linked List', path: '/doubly-linked-list' },
+    { id: 'general-tree', name: 'General Tree', path: '/general-tree'},
   ];
 
   return (

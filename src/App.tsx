@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Sidebar from './components/Sidebar';
 import LinkedListVisualizer from './components/visualizers/LinkedListVisualizer';
 import DoublyLinkedListVisualizer from './components/visualizers/DoublyLinkedListVisualizer';
+import GeneralTreeVisualizer from './components/visualizers/GeneralTreeVisualizer';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/linked-list" replace />} />
             <Route path="/linked-list" element={<LinkedListVisualizer />} />
             <Route path="/doubly-linked-list" element={<DoublyLinkedListVisualizer />} />
+            <Route path="/general-tree" element={<GeneralTreeVisualizer />} />
           </Routes>
 
         </div>

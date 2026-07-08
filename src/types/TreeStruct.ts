@@ -8,5 +8,7 @@ export interface DefTree<T> {
     size: number;
     
     addChild(parentData: T, childData: T): boolean;
-    removeChild(data: T): void;
+    removeChild(data: T): boolean;
+    traverseDFS(callback: (node: DefTreeNode<T>) => void): void;
+    traverseBFS(callback: (node: DefTreeNode<T>) => void): void;
 }
