@@ -13,7 +13,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { LinkedList } from '../../core/TempList';
+import { LinkedList } from '../../core/LinkedList';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
