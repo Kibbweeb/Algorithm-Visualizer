@@ -79,4 +79,72 @@ export class BinarySearchTree<T> implements DefBinaryTree<T> {
         }
     }
 
+    insertNode(data: T): string | null {
+
+        if (this.root === null){
+            let newNode = new BinaryTreeNode(data);
+            this.root = newNode;
+            this.size++;
+            return this.root.id;
+        }
+
+        let currentNode: BinaryTreeNode<T> | null = this.root;
+        let parentNode: BinaryTreeNode<T> = this.root;
+
+        while (currentNode){
+            if (data === currentNode.data){
+                return null;
+            }
+
+            parentNode = currentNode;
+
+            if (data < currentNode.data){
+                currentNode = currentNode.left;
+            } else {
+                currentNode = currentNode.right;
+            }
+        }
+
+        const newNode = new BinaryTreeNode(data, parentNode);
+
+        if (data < parentNode.data){
+            parentNode.left = newNode;
+        } else {
+            parentNode.right = newNode;
+        }
+
+        this.size++;
+        return newNode.id;
+    }
+
+    removeNode(targetId: string): boolean {
+        const targetNode = this.findNodeById(this.root, targetId);
+
+        if (targetNode === null){
+            return false;
+        }
+
+        if (!targetNode.left){
+            this.transplant(targetNode, targetNode.right);
+        } else if (!targetNode.right){
+            this.transplant(targetNode, targetNode.left);
+        } else {
+            const successor = this.getMinNode(targetNode.right!);
+
+            if (successor.parent !== targetNode){
+                this.transplant(successor, successor.right);
+                successor.right = targetNode.right;
+                successor.right!.parent = successor;
+            }
+
+            this.transplant(targetNode, successor);
+            successor.left = targetNode.left;
+            successor.left!.parent = successor;
+
+        }
+
+        this.size--;
+        return true;
+    }
+
 }
