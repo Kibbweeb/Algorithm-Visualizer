@@ -147,4 +147,37 @@ export class BinarySearchTree<T> implements DefBinaryTree<T> {
         return true;
     }
 
+    getInOrderPath(node: BinaryTreeNode<T> | null, path: string[] = []): string[] {
+    if (node) {
+        this.getInOrderPath(node.left, path);
+        path.push(node.id);
+        this.getInOrderPath(node.right, path);
+        }
+    return path;
+    }
+
+    getPreOrderPath(node: BinaryTreeNode<T> | null, path: string[] = []): string[] {
+    if (node) {
+        path.push(node.id);
+        this.getPreOrderPath(node.left, path);
+        this.getPreOrderPath(node.right, path);
+        }
+    return path;
+    }
+
+    getPostOrderPath(node: BinaryTreeNode<T> | null, path: string[] = []): string[] {
+    if (node) {
+        this.getPostOrderPath(node.left, path);
+        this.getPostOrderPath(node.right, path);
+        path.push(node.id);
+        }
+    return path;
+    }
+
+    constructor(initialData?: T[]) {
+    if (initialData) {
+        initialData.forEach(data => this.insertNode(data));
+        }
+    }
+
 }
