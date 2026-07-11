@@ -8,6 +8,7 @@ export default function Sidebar() {
     { id: 'linked-list', name: 'Linked List', path: '/linked-list' },
     { id: 'doubly-linked-list', name: 'Doubly Linked List', path: '/doubly-linked-list' },
     { id: 'general-tree', name: 'General Tree', path: '/general-tree'},
+    {id: 'binary-search-tree', name: 'Binary Search Tree', path: '/binary-search-tree'},
   ];
 
   return (

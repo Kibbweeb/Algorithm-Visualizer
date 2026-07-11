@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import LinkedListVisualizer from './components/visualizers/LinkedListVisualizer';
 import DoublyLinkedListVisualizer from './components/visualizers/DoublyLinkedListVisualizer';
 import GeneralTreeVisualizer from './components/visualizers/GeneralTreeVisualizer';
+import BstVisualizer from './components/visualizers/BstVisualizer';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/linked-list" element={<LinkedListVisualizer />} />
             <Route path="/doubly-linked-list" element={<DoublyLinkedListVisualizer />} />
             <Route path="/general-tree" element={<GeneralTreeVisualizer />} />
+            <Route path="/binary-search-tree" element={<BstVisualizer />} />
           </Routes>
 
         </div>
